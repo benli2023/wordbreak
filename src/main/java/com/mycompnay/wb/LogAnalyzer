@@ -1,0 +1,81 @@
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+
+public class LogAnalyzer {
+    private Map<String, Map<String, Integer>> eventCount = new HashMap<>();
+
+    public void analyze(String directory) throws IOException {
+        Files.walk(Paths.get(directory))
+                .filter(Files::isRegularFile)
+                .filter(path -> path.toString().endsWith(".log"))
+                .forEach(path -> {
+                    try {
+                        processLogFile(path);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+
+        printEventCounts();
+
+       DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        for (Map.Entry<String, Map<String, Integer>> monthEntry : eventCounts.entrySet()) {
+            for (Map.Entry<String, Integer> eventEntry : monthEntry.getValue().entrySet()) {
+                dataset.addValue(eventEntry.getValue(), eventEntry.getKey(), monthEntry.getKey());
+            }
+        }
+
+        JFreeChart barChart = ChartFactory.createBarChart(
+                "Event Frequency",
+                "Month",
+                "Count",
+                dataset);
+
+        ChartPanel chartPanel = new ChartPanel(barChart);
+        chartPanel.setPreferredSize(new java.awt.Dimension(560, 367));
+        JFrame frame = new JFrame("Log Analysis");
+        frame.setContentPane(chartPanel);
+        frame.pack();
+        frame.setVisible(true);
+
+
+    }
+
+    private void processLogFile(Path logFilePath) throws IOException {
+        String fileName = logFilePath.getParent().getFileName().toString(); // get the parent folder name as month
+        String month = fileName.substring(fileName.indexOf("-") + 1);
+
+        try (BufferedReader reader = Files.newBufferedReader(logFilePath)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                int lastIndex = line.lastIndexOf("||");
+                if(lastIndex > -1){
+                    String eventName = line.substring(line.lastIndexOf("||", lastIndex-2)+2, lastIndex).trim(); // remove leading and trailing spaces
+                    Map<String, Integer> monthlyCount = eventCount.getOrDefault(month, new HashMap<>());
+                    monthlyCount.put(eventName, monthlyCount.getOrDefault(eventName, 0) + 1);
+                    eventCount.put(month, monthlyCount);
+                }
+            }
+        }
+    }
+
+    private void printEventCounts() {
+        for (Map.Entry<String, Map<String, Integer>> entry : eventCount.entrySet()) {
+            System.out.println("Month: " + entry.getKey());
+            for (Map.Entry<String, Integer> subEntry : entry.getValue().entrySet()) {
+                System.out.println("\tEvent: " + subEntry.getKey() + ", Count: " + subEntry.getValue());
+            }
+        }
+    }
+
+
+
+    public static void main(String[] args) throws IOException {
+        new LogAnalyzer().analyze(".");
+    }
+}
+    public static void main(String[] args) throws IOException {
+        new LogAnalyzer().analyze("./");
+    }
+}
